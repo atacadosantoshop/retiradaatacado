@@ -154,7 +154,7 @@ body.locked .wrap{display:none}
     <div class="t">Acesso restrito</div>
     <label>Usuário<input id="lUser" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required></label>
     <label>Senha<input id="lPass" type="password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" required></label>
-    <label class="keep"><input type="checkbox" id="lKeep" checked> Manter conectado neste aparelho</label>
+    <label class="keep"><input type="checkbox" id="lKeep"> Manter conectado por 7 dias</label>
     <p class="err" id="lErr"></p>
     <button class="btn primary" type="submit">Entrar</button>
   </form>
@@ -699,14 +699,18 @@ async function marcarCobrado(ids){
 /* ---------- login ---------- */
 const AUTH="4bcf43e9895f3758f7ed45e40cb5eea2bb8ae39165d70487e6c0e3eb52b8902f", AK="santoShop.auth";
 async function sha(t){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}
-function getAuth(){try{return localStorage.getItem(AK)||sessionStorage.getItem(AK)}catch(e){return null}}
+function getAuth(){try{
+  const s=sessionStorage.getItem(AK);if(s)return s;
+  const l=JSON.parse(localStorage.getItem(AK)||"null");
+  if(l&&l.h&&l.exp>Date.now())return l.h;
+  localStorage.removeItem(AK);return null}catch(e){return null}}
 let started=false;
 function unlock(){document.body.classList.remove("locked");$("#gate").hidden=true;if(!started){started=true;boot()}}
 $("#loginForm").onsubmit=async e=>{
   e.preventDefault();
   let h="";try{h=await sha($("#lUser").value.trim().toLowerCase()+":"+$("#lPass").value.trim().toLowerCase())}catch(err){$("#lErr").textContent="Este navegador não permite o login. Abra pelo endereço com https.";return}
   if(h!==AUTH){$("#lErr").textContent="Usuário ou senha incorretos.";$("#lPass").value="";$("#lPass").focus();return}
-  try{($("#lKeep").checked?localStorage:sessionStorage).setItem(AK,h)}catch(err){}
+  try{sessionStorage.setItem(AK,h);if($("#lKeep").checked)localStorage.setItem(AK,JSON.stringify({h,exp:Date.now()+7*864e5}));else localStorage.removeItem(AK)}catch(err){}
   $("#lErr").textContent="";unlock();
 };
 $("#logout").onclick=()=>{try{localStorage.removeItem(AK);sessionStorage.removeItem(AK)}catch(e){}document.body.classList.add("locked");$("#gate").hidden=false;$("#lPass").value="";$("#lUser").focus()};
