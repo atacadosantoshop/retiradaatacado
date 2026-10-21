@@ -123,6 +123,13 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
 .empty{border:1px dashed var(--line);border-radius:var(--r);padding:40px 20px;text-align:center;color:var(--mute)}
 .empty strong{display:block;font-family:var(--display);letter-spacing:.2em;text-transform:uppercase;color:var(--paper);font-weight:600;margin-bottom:6px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--paper);color:var(--ink);padding:10px 18px;border-radius:999px;font-weight:500;z-index:20;box-shadow:0 8px 30px #0008}
+.cob{font-size:11px;color:var(--wa);margin-top:4px;letter-spacing:.02em}
+.modal{position:fixed;inset:0;z-index:25;background:#0009;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;
+  padding:max(40px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.modal .sheet{width:100%;max-width:560px;margin:0;box-shadow:0 20px 60px #0009}
+.paid-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.paid-head b{font-family:var(--display);font-size:24px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ok)}
+.paid-head select{width:auto}
 /* login */
 .gate{position:fixed;inset:0;z-index:30;background:var(--ink);display:flex;align-items:center;justify-content:center;
   padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
@@ -274,7 +281,11 @@ body.locked .wrap{display:none}
   <!-- COBRANÇAS -->
   <section id="tab-cobrancas" hidden>
     <div class="bar">
-      <div class="grow hint">Aparelhos retirados e ainda não pagos, agrupados por fornecedor. O botão abre o WhatsApp com a mensagem pronta.</div>
+      <div class="chips" id="cobView">
+        <button class="chip" data-v="aberto" aria-pressed="true">Em aberto <span id="cAb">0</span></button>
+        <button class="chip" data-v="pagos" aria-pressed="false">Pagos <span id="cPg">0</span></button>
+      </div>
+      <div class="grow hint" id="cobHint">Envie a cobrança pelo WhatsApp. Quando o pagamento cair, use “Dar baixa” e o aparelho vai para Pagos.</div>
       <button class="btn" id="editMsg">Editar mensagem</button>
     </div>
     <form class="sheet" id="msgForm" hidden>
@@ -290,6 +301,7 @@ body.locked .wrap{display:none}
       </div>
     </form>
     <div id="dueList"></div>
+    <div id="paidList" hidden></div>
   </section>
 </div>
 
@@ -302,6 +314,23 @@ body.locked .wrap{display:none}
   <option>iPhone 16</option><option>iPhone 16 Plus</option><option>iPhone 16 Pro</option><option>iPhone 16 Pro Max</option><option>iPhone 16e</option>
   <option>iPhone 17</option><option>iPhone Air</option><option>iPhone 17 Pro</option><option>iPhone 17 Pro Max</option><option>iPhone 18</option><option>iPhone 18 Pro</option><option>iPhone 18 Pro Max</option>
 </datalist>
+<div class="modal" id="baixa" hidden>
+  <form class="sheet" id="baixaForm" role="dialog" aria-modal="true" aria-labelledby="bxTitle">
+    <h3 id="bxTitle">Dar baixa no pagamento</h3>
+    <ul class="due-list" id="bxItens"></ul>
+    <div class="grid" style="margin-top:16px">
+      <label class="s2">Valor recebido (R$)<input id="bxValor" inputmode="decimal" required></label>
+      <label class="s2">Data do pagamento<input id="bxData" type="date" required></label>
+      <label class="s2">Forma de pagamento<select id="bxForma"></select></label>
+      <label class="s2">Observação<input id="bxObs" placeholder="Comprovante, quem pagou…"></label>
+    </div>
+    <p class="hint" id="bxHint"></p>
+    <div class="actions">
+      <button type="button" class="btn ghost" id="bxCancel">Cancelar</button>
+      <button type="submit" class="btn primary">Confirmar baixa</button>
+    </div>
+  </form>
+</div>
 <div class="toast" id="toast" hidden></div>
 
 <script>
@@ -361,7 +390,7 @@ const fornById=id=>state.fornecedores.find(f=>f.id===id);
 const val=a=>Number(a.valorRetirada)||Number(a.preco)||0;
 const pessoaDe=a=>{const f=fornById(a.fornecedorId);return f&&(f.autorizados||[]).find(x=>x.id===a.pessoaId)};
 const waPessoa=a=>{const p=pessoaDe(a);return p&&waNumber(p.telefone).length>=12?waLink({nome:p.nome,whatsapp:p.telefone},[a]):""};
-const btnPessoa=a=>{const l=waPessoa(a);return l?`<a class="btn sm wa" href="${esc(l)}" target="_blank" rel="noopener" title="Enviar cobrança para ${esc(pessoaDe(a).nome)}">Cobrar ${esc(pessoaDe(a).nome.split(" ")[0])}</a>`:""};
+const btnPessoa=a=>{const l=waPessoa(a);return l?`<a class="btn sm wa" data-cob="${a.id}" href="${esc(l)}" target="_blank" rel="noopener" title="Enviar cobrança para ${esc(pessoaDe(a).nome)}">Cobrar ${esc(pessoaDe(a).nome.split(" ")[0])}</a>`:""};
 const pessoaNome=a=>{const f=fornById(a.fornecedorId);const p=f&&(f.autorizados||[]).find(x=>x.id===a.pessoaId);return p?p.nome:(a.pessoaNome||"")};
 const isLate=a=>a.status==="retirado"&&a.vencimento&&a.vencimento<today();
 const label=a=>[a.modelo,a.capacidade,a.cor].filter(Boolean).join(" · ");
@@ -378,6 +407,8 @@ function statusPill(a){
   if(isLate(a))return `<span class="pill st-atrasado">Atrasado</span>`;
   return {estoque:`<span class="pill st-estoque">Em estoque</span>`,retirado:`<span class="pill st-retirado">Retirado</span>`,pago:`<span class="pill st-pago">Pago</span>`}[a.status]||"";
 }
+const cobTag=a=>a.cobradoEm?`<div class="cob">Cobrança enviada ${dBR(a.cobradoEm)}${a.cobrancas>1?" · "+a.cobrancas+"ª vez":""}</div>`:"";
+const FORMAS=["Pix","Dinheiro","Transferência","Cartão","Outro"];
 const exTag=o=>o.exemplo?`<span class="ex">exemplo</span>`:"";
 
 function render(){
@@ -388,7 +419,8 @@ function render(){
   $("#sVal").textContent=brlShort(est.reduce((s,a)=>s+(Number(a.preco)||Number(a.custo)||0),0));
   $("#nA").textContent=A.length; $("#nF").textContent=F.length;
   const groups=dueGroups(); $("#nC").textContent=groups.length;
-  renderPhones(); renderSups(); renderDue(groups); fillFornSelect();
+  $("#cAb").textContent=A.filter(a=>a.status==="retirado").length; $("#cPg").textContent=A.filter(a=>a.status==="pago").length;
+  renderPhones(); renderSups(); renderDue(groups); renderPaid(); fillFornSelect();
 }
 
 function renderPhones(){
@@ -405,11 +437,11 @@ function renderPhones(){
     const f=fornById(a.fornecedorId);
     const sub=[a.condicao,a.bateria?("bateria "+a.bateria+"%"):""].filter(Boolean).join(" · ");
     const fcell=a.status==="estoque"?`<span class="meta">—</span>`:`${esc(f?f.nome:"Sem fornecedor")}<div class="meta">${pessoaNome(a)?"por "+esc(pessoaNome(a))+" · ":""}${a.dataRetirada?"desde "+dBR(a.dataRetirada)+(a.status==="retirado"?" · "+days(a.dataRetirada)+" dias":""):""}</div>`;
-    const cobrar=a.status==="retirado"?btnPessoa(a)+(f&&f.whatsapp?`<a class="btn sm ${waPessoa(a)?"":"wa"}" href="${esc(waLink(f,[a]))}" target="_blank" rel="noopener">Cobrar fornecedor</a>`:""):"";
+    const cobrar=a.status==="retirado"?btnPessoa(a)+(f&&f.whatsapp?`<a class="btn sm ${waPessoa(a)?"":"wa"}" data-cob="${a.id}" href="${esc(waLink(f,[a]))}" target="_blank" rel="noopener">Cobrar fornecedor</a>`:""):"";
     return `<tr><td><div class="model">${esc(label(a))}${exTag(a)}</div><div class="meta">${esc(sub)}</div></td>
-      <td class="imei">${esc(a.imei||"—")}</td><td>${statusPill(a)}</td><td>${fcell}</td>
+      <td class="imei">${esc(a.imei||"—")}</td><td>${statusPill(a)}${a.status==="retirado"?cobTag(a):a.status==="pago"&&a.pagoEm?`<div class="meta">${dBR(a.pagoEm)}${a.formaPagamento?" · "+esc(a.formaPagamento):""}</div>`:""}</td><td>${fcell}</td>
       <td class="num">${a.custo?brl(a.custo):"—"}</td><td class="num">${a.preco?brl(a.preco):"—"}${a.status!=="estoque"&&a.valorRetirada&&a.valorRetirada!==a.preco?`<div class="meta">retirada ${brl(a.valorRetirada)}</div>`:""}</td>
-      <td><div class="row-actions">${a.status==="estoque"?`<button class="btn sm" data-ret="${a.id}">Retirar</button>`:""}${cobrar}${a.status==="retirado"?`<button class="btn sm" data-pay="${a.id}">Pago</button>`:""}<button class="btn sm ghost" data-edit="${a.id}">Editar</button></div></td></tr>`}).join("")}</tbody></table></div>`;
+      <td><div class="row-actions">${a.status==="estoque"?`<button class="btn sm" data-ret="${a.id}">Retirar</button>`:""}${cobrar}${a.status==="retirado"?`<button class="btn sm" data-pay="${a.id}">Dar baixa</button>`:""}<button class="btn sm ghost" data-edit="${a.id}">Editar</button></div></td></tr>`}).join("")}</tbody></table></div>`;
 }
 
 function renderSups(){
@@ -429,7 +461,7 @@ function renderSups(){
       <div class="line"><span class="meta">Em aberto</span><span style="color:${deve?"var(--due)":"inherit"}">${brl(deve)}</span></div>
       <div><div class="meta" style="margin-bottom:6px">Autorizados a retirar</div>${(f.autorizados||[]).length?`<div class="people">${f.autorizados.map(p=>`<span class="person">${esc(p.nome)}</span>`).join("")}</div>`:`<div class="meta">Ninguém cadastrado</div>`}</div>
       ${f.obs?`<div class="meta">${esc(f.obs)}</div>`:""}
-      <div class="foot">${comEle.length&&f.whatsapp?`<a class="btn sm wa" href="${esc(waLink(f,comEle))}" target="_blank" rel="noopener">Cobrar tudo</a>`:""}<button class="btn sm ghost" data-editf="${f.id}">Editar</button></div></article>`}).join("")}</div>`;
+      <div class="foot">${comEle.length&&f.whatsapp?`<a class="btn sm wa" data-cob="${comEle.map(a=>a.id).join(",")}" href="${esc(waLink(f,comEle))}" target="_blank" rel="noopener">Cobrar tudo</a>`:""}<button class="btn sm ghost" data-editf="${f.id}">Editar</button></div></article>`}).join("")}</div>`;
 }
 
 function dueGroups(){
@@ -444,12 +476,36 @@ function renderDue(groups){
   box.innerHTML=`<div class="cards">${groups.map(g=>{
     const link=g.forn.whatsapp?waLink(g.forn,g.itens):"";
     return `<article class="card"><div><h4>${esc(g.forn.nome)}${exTag(g.forn)}</h4><div class="meta">${esc(g.forn.whatsapp||"Cadastre o WhatsApp deste fornecedor")}</div></div>
-      <ul class="due-list">${g.itens.map(a=>`<li><div class="l"><div>${esc(a.modelo)} ${esc(a.capacidade||"")}</div><div class="meta">${pessoaNome(a)?"por "+esc(pessoaNome(a))+" · ":""}${a.dataRetirada?"retirado "+dBR(a.dataRetirada)+" · "+days(a.dataRetirada)+" dias":""}${a.vencimento?" · prazo "+dBR(a.vencimento):""}</div></div>
-        <div style="display:flex;gap:8px;align-items:center">${isLate(a)?`<span class="pill st-atrasado">Atrasado</span>`:""}<span style="font-variant-numeric:tabular-nums">${brl(val(a))}</span>${btnPessoa(a)}<button class="btn sm" data-pay="${a.id}">Pago</button></div></li>`).join("")}</ul>
+      <ul class="due-list">${g.itens.map(a=>`<li><div class="l"><div>${esc(a.modelo)} ${esc(a.capacidade||"")}</div><div class="meta">${pessoaNome(a)?"por "+esc(pessoaNome(a))+" · ":""}${a.dataRetirada?"retirado "+dBR(a.dataRetirada)+" · "+days(a.dataRetirada)+" dias":""}${a.vencimento?" · prazo "+dBR(a.vencimento):""}</div>${cobTag(a)}</div>
+        <div style="display:flex;gap:8px;align-items:center">${isLate(a)?`<span class="pill st-atrasado">Atrasado</span>`:""}<span style="font-variant-numeric:tabular-nums">${brl(val(a))}</span>${btnPessoa(a)}<button class="btn sm" data-pay="${a.id}">Dar baixa</button></div></li>`).join("")}</ul>
       <div class="total"><span class="meta">Total em aberto</span><b>${brl(g.total)}</b></div>
       ${link?`<div class="link" id="lk-${g.forn.id}">${esc(link)}</div>
-      <div class="foot"><a class="btn wa" href="${esc(link)}" target="_blank" rel="noopener">Cobrar no WhatsApp</a><button class="btn" data-copy="${esc(link)}">Copiar link</button></div>`:""}
+      <div class="foot"><a class="btn wa" data-cob="${g.itens.map(a=>a.id).join(",")}" href="${esc(link)}" target="_blank" rel="noopener">Cobrar no WhatsApp</a><button class="btn" data-copy="${esc(link)}">Copiar link</button></div>`:""}
+      <div class="foot"><button class="btn" data-pay="${g.itens.map(a=>a.id).join(",")}">Dar baixa em tudo (${g.itens.length})</button></div>
     </article>`}).join("")}</div>`;
+}
+
+let mesPago="todos";
+function renderPaid(){
+  const box=$("#paidList");if(!store)return;
+  const all=state.aparelhos.filter(a=>a.status==="pago").sort((a,b)=>(b.pagoEm||"").localeCompare(a.pagoEm||""));
+  if(!all.length){box.innerHTML=`<div class="empty"><strong>Nenhum pagamento ainda</strong>Quando você der baixa em uma cobrança, ela aparece aqui.</div>`;return}
+  const meses=[...new Set(all.map(a=>(a.pagoEm||"").slice(0,7)).filter(Boolean))];
+  if(mesPago!=="todos"&&!meses.includes(mesPago))mesPago="todos";
+  const rows=all.filter(a=>mesPago==="todos"||(a.pagoEm||"").startsWith(mesPago));
+  const nomeMes=m=>{const [y,mm]=m.split("-");return new Date(+y,+mm-1,1).toLocaleDateString("pt-BR",{month:"long",year:"numeric"})};
+  const recebido=rows.reduce((s,a)=>s+(Number(a.valorPago)||val(a)),0);
+  box.innerHTML=`<div class="paid-head"><div><div class="meta">Total recebido</div><b>${brl(recebido)}</b></div>
+    <select id="mesPago" aria-label="Filtrar por mês"><option value="todos">Todos os meses</option>${meses.map(m=>`<option value="${m}">${nomeMes(m)}</option>`).join("")}</select></div>
+    <div class="tablebox"><table><thead><tr><th>Aparelho</th><th>Fornecedor</th><th>Pagamento</th><th>Cobrança</th><th class="num">Valor</th><th></th></tr></thead><tbody>${rows.map(a=>{const f=fornById(a.fornecedorId);return `<tr>
+      <td><div class="model">${esc(label(a))}${exTag(a)}</div><div class="meta">${a.imei?"IMEI final "+esc(String(a.imei).slice(-4)):""}</div></td>
+      <td>${esc(f?f.nome:"—")}<div class="meta">${pessoaNome(a)?"retirado por "+esc(pessoaNome(a)):""}${a.dataRetirada?" · "+dBR(a.dataRetirada):""}</div></td>
+      <td><span class="pill st-pago">${dBR(a.pagoEm)}</span><div class="meta">${esc(a.formaPagamento||"")}${a.obsPagamento?" · "+esc(a.obsPagamento):""}</div></td>
+      <td class="meta">${a.cobradoEm?"enviada "+dBR(a.cobradoEm)+(a.cobrancas>1?" · "+a.cobrancas+"x":""):"—"}</td>
+      <td class="num">${brl(Number(a.valorPago)||val(a))}</td>
+      <td><div class="row-actions"><button class="btn sm ghost" data-undo="${a.id}">Desfazer baixa</button></div></td></tr>`}).join("")}</tbody></table></div>`;
+  $("#mesPago").value=mesPago;
+  $("#mesPago").onchange=e=>{mesPago=e.target.value;renderPaid()};
 }
 
 function fillFornSelect(){
@@ -525,12 +581,14 @@ $("#msgForm").onsubmit=e=>{e.preventDefault();act(()=>store.saveMsg($("#msgText"
 
 /* ---------- ações nas listas ---------- */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-edit],[data-editf],[data-pay],[data-copy],[data-ret],[data-rmauth]");if(!t)return;
+  const t=e.target.closest("[data-edit],[data-editf],[data-pay],[data-copy],[data-ret],[data-rmauth],[data-cob],[data-undo]");if(!t)return;
+  if(t.dataset.cob)marcarCobrado(t.dataset.cob.split(","));
+  if(t.dataset.undo){const a=state.aparelhos.find(x=>x.id===t.dataset.undo);if(a){const it={...a,status:"retirado"};["pagoEm","formaPagamento","obsPagamento","valorPago"].forEach(k=>delete it[k]);act(()=>store.save("aparelhos",it),"Baixa desfeita. Voltou para Em aberto")}}
   if(t.dataset.ret)openRet(t.dataset.ret);
   if(t.dataset.rmauth){t.closest(".auth-row").remove();authEmpty()}
   if(t.dataset.edit)openPhone(state.aparelhos.find(a=>a.id===t.dataset.edit));
   if(t.dataset.editf)openSup(state.fornecedores.find(f=>f.id===t.dataset.editf));
-  if(t.dataset.pay){const a=state.aparelhos.find(x=>x.id===t.dataset.pay);if(a){const it={...a,status:"pago",pagoEm:today()};delete it.exemplo;act(()=>store.save("aparelhos",it),"Marcado como pago")}}
+  if(t.dataset.pay)openBaixa(t.dataset.pay.split(","));
   if(t.dataset.copy){const txt=t.dataset.copy;
     const fallback=()=>{const el=t.closest(".card").querySelector(".link");if(el){const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r)}toast("Link selecionado, copie com Ctrl+C")};
     try{navigator.clipboard.writeText(txt).then(()=>toast("Link copiado"),fallback)}catch(err){fallback()}}
@@ -593,6 +651,46 @@ $("#retForm").onsubmit=e=>{
   delete item.exemplo;
   act(()=>store.save("aparelhos",item),`${a.modelo} lançado para ${f.nome}`);$("#retForm").hidden=true;
 };
+
+/* ---------- cobranças: em aberto / pagos ---------- */
+$("#cobView").onclick=e=>{const b=e.target.closest(".chip");if(!b)return;const v=b.dataset.v;
+  $$("#cobView .chip").forEach(c=>c.setAttribute("aria-pressed",c===b));
+  $("#dueList").hidden=v!=="aberto";$("#paidList").hidden=v!=="pagos";
+  $("#cobHint").textContent=v==="aberto"?"Envie a cobrança pelo WhatsApp. Quando o pagamento cair, use “Dar baixa” e o aparelho vai para Pagos.":"Pagamentos já recebidos. Use “Desfazer baixa” se lançou por engano."};
+
+/* ---------- dar baixa ---------- */
+let bxIds=[];
+$("#bxForma").innerHTML=FORMAS.map(f=>`<option>${f}</option>`).join("");
+function openBaixa(ids){
+  const itens=ids.map(id=>state.aparelhos.find(a=>a.id===id)).filter(a=>a&&a.status==="retirado");if(!itens.length)return;
+  bxIds=itens.map(a=>a.id);
+  $("#bxTitle").textContent=itens.length>1?`Dar baixa em ${itens.length} aparelhos`:"Dar baixa no pagamento";
+  $("#bxItens").innerHTML=itens.map(a=>`<li><div class="l"><div>${esc(label(a))}</div><div class="meta">${esc((fornById(a.fornecedorId)||{}).nome||"")}${pessoaNome(a)?" · "+esc(pessoaNome(a)):""}</div></div><span style="font-variant-numeric:tabular-nums">${brl(val(a))}</span></li>`).join("");
+  const total=itens.reduce((s,a)=>s+val(a),0);
+  $("#bxValor").value=fmtNum(total);$("#bxValor").readOnly=itens.length>1;
+  $("#bxHint").textContent=itens.length>1?"Cada aparelho recebe a baixa com o próprio valor. Para valores diferentes, dê baixa um por um.":"";
+  $("#bxData").value=today();$("#bxObs").value="";
+  $("#baixa").hidden=false;$("#bxValor").focus();
+}
+function closeBaixa(){$("#baixa").hidden=true;bxIds=[]}
+$("#bxCancel").onclick=closeBaixa;
+$("#baixa").onclick=e=>{if(e.target.id==="baixa")closeBaixa()};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#baixa").hidden)closeBaixa()});
+$("#baixaForm").onsubmit=e=>{
+  e.preventDefault();
+  const ids=bxIds.slice(),data=$("#bxData").value||today(),forma=$("#bxForma").value,obs=$("#bxObs").value.trim(),valor=num($("#bxValor").value);
+  if(!valor){toast("Informe o valor recebido");return}
+  closeBaixa();
+  act(async()=>{for(const id of ids){const a=state.aparelhos.find(x=>x.id===id);if(!a)continue;
+    const it={...a,status:"pago",pagoEm:data,formaPagamento:forma,obsPagamento:obs,valorPago:ids.length>1?val(a):valor};delete it.exemplo;
+    await store.save("aparelhos",it)}},ids.length>1?`Baixa feita em ${ids.length} aparelhos`:"Baixa feita. Foi para Pagos");
+};
+async function marcarCobrado(ids){
+  if(!store)return;const d=today();
+  for(const id of ids){const a=state.aparelhos.find(x=>x.id===id);if(!a||a.status!=="retirado")continue;
+    const it={...a,cobradoEm:d,cobrancas:(Number(a.cobrancas)||0)+1};delete it.exemplo;
+    try{await store.save("aparelhos",it)}catch(e){console.warn(e)}}
+}
 
 /* ---------- login ---------- */
 const AUTH="4bcf43e9895f3758f7ed45e40cb5eea2bb8ae39165d70487e6c0e3eb52b8902f", AK="santoShop.auth";
