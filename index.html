@@ -115,6 +115,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
 .due-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .due-list li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 12px;background:var(--panel);border-radius:8px;flex-wrap:wrap}
 .due-list li .l{min-width:0}
+.due-list li>div:last-child{flex-wrap:wrap}
 .total{display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--line);padding-top:12px}
 .total b{font-family:var(--display);font-size:24px;font-weight:600;font-variant-numeric:tabular-nums}
 .link{font-size:12px;color:var(--mute);word-break:break-all;background:var(--panel);border-radius:6px;padding:8px 10px;user-select:all}
@@ -336,6 +337,9 @@ async function act(fn,ok){
 /* ---------- cálculos ---------- */
 const fornById=id=>state.fornecedores.find(f=>f.id===id);
 const val=a=>Number(a.valorRetirada)||Number(a.preco)||0;
+const pessoaDe=a=>{const f=fornById(a.fornecedorId);return f&&(f.autorizados||[]).find(x=>x.id===a.pessoaId)};
+const waPessoa=a=>{const p=pessoaDe(a);return p&&waNumber(p.telefone).length>=12?waLink({nome:p.nome,whatsapp:p.telefone},[a]):""};
+const btnPessoa=a=>{const l=waPessoa(a);return l?`<a class="btn sm wa" href="${esc(l)}" target="_blank" rel="noopener" title="Enviar cobrança para ${esc(pessoaDe(a).nome)}">Cobrar ${esc(pessoaDe(a).nome.split(" ")[0])}</a>`:""};
 const pessoaNome=a=>{const f=fornById(a.fornecedorId);const p=f&&(f.autorizados||[]).find(x=>x.id===a.pessoaId);return p?p.nome:(a.pessoaNome||"")};
 const isLate=a=>a.status==="retirado"&&a.vencimento&&a.vencimento<today();
 const label=a=>[a.modelo,a.capacidade,a.cor].filter(Boolean).join(" · ");
@@ -379,7 +383,7 @@ function renderPhones(){
     const f=fornById(a.fornecedorId);
     const sub=[a.condicao,a.bateria?("bateria "+a.bateria+"%"):""].filter(Boolean).join(" · ");
     const fcell=a.status==="estoque"?`<span class="meta">—</span>`:`${esc(f?f.nome:"Sem fornecedor")}<div class="meta">${pessoaNome(a)?"por "+esc(pessoaNome(a))+" · ":""}${a.dataRetirada?"desde "+dBR(a.dataRetirada)+(a.status==="retirado"?" · "+days(a.dataRetirada)+" dias":""):""}</div>`;
-    const cobrar=a.status==="retirado"&&f&&f.whatsapp?`<a class="btn sm wa" href="${esc(waLink(f,[a]))}" target="_blank" rel="noopener">Cobrar</a>`:"";
+    const cobrar=a.status==="retirado"?btnPessoa(a)+(f&&f.whatsapp?`<a class="btn sm ${waPessoa(a)?"":"wa"}" href="${esc(waLink(f,[a]))}" target="_blank" rel="noopener">Cobrar fornecedor</a>`:""):"";
     return `<tr><td><div class="model">${esc(label(a))}${exTag(a)}</div><div class="meta">${esc(sub)}</div></td>
       <td class="imei">${esc(a.imei||"—")}</td><td>${statusPill(a)}</td><td>${fcell}</td>
       <td class="num">${a.custo?brl(a.custo):"—"}</td><td class="num">${a.preco?brl(a.preco):"—"}${a.status!=="estoque"&&a.valorRetirada&&a.valorRetirada!==a.preco?`<div class="meta">retirada ${brl(a.valorRetirada)}</div>`:""}</td>
@@ -419,7 +423,7 @@ function renderDue(groups){
     const link=g.forn.whatsapp?waLink(g.forn,g.itens):"";
     return `<article class="card"><div><h4>${esc(g.forn.nome)}${exTag(g.forn)}</h4><div class="meta">${esc(g.forn.whatsapp||"Cadastre o WhatsApp deste fornecedor")}</div></div>
       <ul class="due-list">${g.itens.map(a=>`<li><div class="l"><div>${esc(a.modelo)} ${esc(a.capacidade||"")}</div><div class="meta">${pessoaNome(a)?"por "+esc(pessoaNome(a))+" · ":""}${a.dataRetirada?"retirado "+dBR(a.dataRetirada)+" · "+days(a.dataRetirada)+" dias":""}${a.vencimento?" · prazo "+dBR(a.vencimento):""}</div></div>
-        <div style="display:flex;gap:8px;align-items:center">${isLate(a)?`<span class="pill st-atrasado">Atrasado</span>`:""}<span style="font-variant-numeric:tabular-nums">${brl(val(a))}</span><button class="btn sm" data-pay="${a.id}">Pago</button></div></li>`).join("")}</ul>
+        <div style="display:flex;gap:8px;align-items:center">${isLate(a)?`<span class="pill st-atrasado">Atrasado</span>`:""}<span style="font-variant-numeric:tabular-nums">${brl(val(a))}</span>${btnPessoa(a)}<button class="btn sm" data-pay="${a.id}">Pago</button></div></li>`).join("")}</ul>
       <div class="total"><span class="meta">Total em aberto</span><b>${brl(g.total)}</b></div>
       ${link?`<div class="link" id="lk-${g.forn.id}">${esc(link)}</div>
       <div class="foot"><a class="btn wa" href="${esc(link)}" target="_blank" rel="noopener">Cobrar no WhatsApp</a><button class="btn" data-copy="${esc(link)}">Copiar link</button></div>`:""}
