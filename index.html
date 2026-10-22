@@ -127,6 +127,19 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:now
 .empty{border:1px dashed var(--line);border-radius:var(--r);padding:40px 20px;text-align:center;color:var(--mute)}
 .empty strong{display:block;font-family:var(--display);letter-spacing:.2em;text-transform:uppercase;color:var(--paper);font-weight:600;margin-bottom:6px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--paper);color:var(--ink);padding:10px 18px;border-radius:999px;font-weight:500;z-index:20;box-shadow:0 8px 30px #0008}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.seg button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:12px 14px;cursor:pointer;color:var(--mute)}
+.seg button b{font-family:var(--display);font-weight:600;letter-spacing:.16em;text-transform:uppercase;font-size:14px;color:var(--paper)}
+.seg button span{font-size:12px}
+.seg button[aria-checked="true"]{border-color:var(--paper);background:var(--panel);box-shadow:inset 0 0 0 1px var(--paper)}
+.seg button:disabled{cursor:default;opacity:.55}
+.seg button[aria-checked="true"]:disabled{opacity:1}
+.opt{font-style:normal;color:var(--mute);opacity:.8;font-size:11px}
+.tag{display:inline-block;font-size:10px;letter-spacing:.14em;text-transform:uppercase;border-radius:4px;padding:1px 6px;margin-right:6px;vertical-align:middle;border:1px solid currentColor}
+.tag.novo{color:var(--paper)}.tag.semi{color:var(--warn)}
+.qty{font-family:var(--display);font-weight:600;font-size:20px;font-variant-numeric:tabular-nums}
+.qty.zero{color:var(--mute);font-weight:400}
+#pSitBox{border-top:1px solid var(--line);padding-top:14px}
 .cob{font-size:11px;color:var(--wa);margin-top:4px;letter-spacing:.02em}
 .modal{position:fixed;inset:0;z-index:25;background:#0009;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;
   padding:max(40px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
@@ -191,6 +204,15 @@ body.locked .wrap{display:none}
         <button class="chip" data-f="retirado" aria-pressed="false">Retirados</button>
         <button class="chip" data-f="pago" aria-pressed="false">Pagos</button>
       </div>
+      <div class="chips" id="fTipo">
+        <button class="chip" data-t="todos" aria-pressed="true">Novos e seminovos</button>
+        <button class="chip" data-t="Novo" aria-pressed="false">Novos</button>
+        <button class="chip" data-t="Seminovo" aria-pressed="false">Seminovos</button>
+      </div>
+      <div class="chips" id="fView">
+        <button class="chip" data-v="resumo" aria-pressed="true">Resumo por modelo</button>
+        <button class="chip" data-v="unidades" aria-pressed="false">Unidades</button>
+      </div>
       <button class="btn" id="newRet">Lançar retirada</button>
       <button class="btn primary" id="newPhone">+ Novo aparelho</button>
     </div>
@@ -218,35 +240,57 @@ body.locked .wrap{display:none}
     <form class="sheet" id="phoneForm" hidden>
       <h3 id="phoneFormTitle">Novo aparelho</h3>
       <input type="hidden" id="pId">
+      <div class="seg" id="pTipo" role="radiogroup" aria-label="Tipo de produto">
+        <button type="button" role="radio" data-t="Novo" aria-checked="true"><b>Novo</b><span>Lacrado · bateria 100%</span></button>
+        <button type="button" role="radio" data-t="Seminovo" aria-checked="false"><b>Seminovo</b><span>IMEI, bateria e estado</span></button>
+      </div>
       <div class="grid">
         <label class="s2">Modelo
-          <input id="pModelo" list="modelos" required placeholder="iPhone 15 Pro Max">
+          <input id="pModelo" list="modelos" required placeholder="iPhone 18 Pro Max">
         </label>
         <label>Armazenamento
-          <select id="pCap"><option>64GB</option><option selected>128GB</option><option>256GB</option><option>512GB</option><option>1TB</option></select>
+          <select id="pCap"><option>64GB</option><option selected>128GB</option><option>256GB</option><option>512GB</option><option>1TB</option><option>2TB</option></select>
         </label>
-        <label>Cor<input id="pCor" placeholder="Titânio natural"></label>
-        <label class="s2">IMEI<input id="pImei" inputmode="numeric" maxlength="17" placeholder="15 dígitos"></label>
-        <label>Condição
-          <select id="pCond"><option>Novo</option><option selected>Seminovo</option></select>
+        <label>Cor<input id="pCor" placeholder="Azul"></label>
+
+        <!-- novo -->
+        <label data-only="novo" id="pQtdBox">Quantidade<input id="pQtd" type="number" min="1" max="50" value="1" inputmode="numeric"></label>
+        <label data-only="novo" class="s3" id="pImeiNovoBox"><span>IMEI <em class="opt">opcional</em></span><input id="pImeiNovo" inputmode="numeric" maxlength="17" placeholder="15 dígitos"></label>
+        <label data-only="novo" class="s3" id="pImeisBox" hidden><span>IMEIs <em class="opt">opcional, um por linha, na ordem das unidades</em></span><textarea id="pImeis" rows="3" inputmode="numeric" placeholder="356…&#10;356…"></textarea></label>
+
+        <!-- seminovo -->
+        <label data-only="semi" class="s2">IMEI<input id="pImei" inputmode="numeric" maxlength="17" placeholder="15 dígitos"></label>
+        <label data-only="semi">Saúde da bateria (%)<input id="pBat" type="number" min="1" max="100" placeholder="ex.: 89"></label>
+        <label data-only="semi">Estado de conservação
+          <select id="pEstado"><option>Excelente</option><option selected>Muito bom</option><option>Bom</option><option>Com marcas de uso</option></select>
         </label>
-        <label>Saúde da bateria (%)<input id="pBat" type="number" min="0" max="100" placeholder="ex.: 89"></label>
+        <label data-only="semi">Caixa
+          <select id="pCaixa"><option>Com caixa</option><option selected>Sem caixa</option></select>
+        </label>
+        <label data-only="semi"><span>Garantia Apple até <em class="opt">opcional</em></span><input id="pGarantia" type="date"></label>
+        <label data-only="semi" class="s2">Peças trocadas ou reparos<input id="pReparo" placeholder="Nenhuma / tela trocada / bateria trocada…"></label>
+        <label data-only="semi" class="s2">Acessórios<input id="pAcess" placeholder="Cabo, capinha, película…"></label>
+        <label data-only="semi" class="s2">Detalhes de tela e carcaça<input id="pDetalhe" placeholder="Risco leve na lateral…"></label>
+
         <label>Custo (R$)<input id="pCusto" inputmode="decimal" placeholder="0,00"></label>
         <label>Valor de repasse (R$)<input id="pPreco" inputmode="decimal" placeholder="0,00"></label>
-        <label>Situação
-          <select id="pStatus"><option value="estoque">Em estoque</option><option value="retirado">Retirado por cliente</option><option value="pago">Pago</option></select>
-        </label>
-        <label>Cliente que retirou<select id="pForn"></select></label>
-        <label>Data da retirada<input id="pData" type="date"></label>
-        <label>Prazo de pagamento<input id="pVenc" type="date"></label>
-        <label class="s2">Quem retirou<select id="pPessoa"></select></label>
-        <label>Valor da retirada (R$)<input id="pValRet" inputmode="decimal" placeholder="usa o repasse se vazio"></label>
-        <label class="s3">Observação<input id="pObs" placeholder="Caixa, acessórios, detalhes de tela…"></label>
+        <label class="s2">Observação<input id="pObs" placeholder="Qualquer outra informação"></label>
+
+        <div class="grid s4" id="pSitBox">
+          <label>Situação
+            <select id="pStatus"><option value="estoque">Em estoque</option><option value="retirado">Retirado por cliente</option><option value="pago">Pago</option></select>
+          </label>
+          <label>Cliente que retirou<select id="pForn"></select></label>
+          <label>Data da retirada<input id="pData" type="date"></label>
+          <label>Prazo de pagamento<input id="pVenc" type="date"></label>
+          <label class="s2">Quem retirou<select id="pPessoa"></select></label>
+          <label>Valor da retirada (R$)<input id="pValRet" inputmode="decimal" placeholder="usa o repasse se vazio"></label>
+        </div>
       </div>
       <div class="actions">
         <button type="button" class="btn danger" id="pDel" hidden>Excluir</button>
         <button type="button" class="btn ghost" id="pCancel">Cancelar</button>
-        <button type="submit" class="btn primary">Salvar aparelho</button>
+        <button type="submit" class="btn primary" id="phoneSubmit">Salvar aparelho</button>
       </div>
     </form>
 
@@ -411,6 +455,11 @@ function statusPill(a){
   if(isLate(a))return `<span class="pill st-atrasado">Atrasado</span>`;
   return {estoque:`<span class="pill st-estoque">Em estoque</span>`,retirado:`<span class="pill st-retirado">Retirado</span>`,pago:`<span class="pill st-pago">Pago</span>`}[a.status]||"";
 }
+const isSemi=a=>a.condicao==="Seminovo";
+const tipoTag=a=>isSemi(a)?`<span class="tag semi">Seminovo</span>`:`<span class="tag novo">Novo</span>`;
+const detalhes=a=>isSemi(a)?[a.bateria?"bateria "+a.bateria+"%":"",a.estado,a.caixa,a.reparo&&!/^nenhum/i.test(a.reparo)?"reparo: "+a.reparo:"",a.garantia?"garantia até "+dBR(a.garantia):""].filter(Boolean).join(" · "):"Lacrado · bateria 100%";
+const grupoKey=a=>[a.condicao||"Novo",a.modelo,a.capacidade,a.cor].join("|").toLowerCase();
+let tipoF="todos", view="resumo";
 const cobTag=a=>a.cobradoEm?`<div class="cob">Cobrança enviada ${dBR(a.cobradoEm)}${a.cobrancas>1?" · "+a.cobrancas+"ª vez":""}</div>`:"";
 const FORMAS=["Pix","Dinheiro","Transferência","Cartão","Outro"];
 const exTag=o=>o.exemplo?`<span class="ex">exemplo</span>`:"";
@@ -429,23 +478,43 @@ function render(){
 
 function renderPhones(){
   const q=$("#q").value.trim().toLowerCase();
-  let rows=state.aparelhos.filter(a=>filtro==="todos"||a.status===filtro).filter(a=>{
+  const base=state.aparelhos.filter(a=>tipoF==="todos"||(a.condicao||"Novo")===tipoF).filter(a=>{
     if(!q)return true;const f=fornById(a.fornecedorId);
-    return [a.modelo,a.cor,a.imei,a.capacidade,f&&f.nome].join(" ").toLowerCase().includes(q)});
+    return [a.modelo,a.cor,a.imei,a.capacidade,a.condicao,f&&f.nome].join(" ").toLowerCase().includes(q)});
+  let rows=base.filter(a=>filtro==="todos"||a.status===filtro);
   rows.sort((a,b)=>(b.criadoEm||"").localeCompare(a.criadoEm||""));
   const box=$("#phoneList");
   if(!store){box.innerHTML=`<div class="empty"><strong>Carregando</strong>Buscando seus aparelhos…</div>`;return}
   if(!state.aparelhos.length){box.innerHTML=`<div class="empty"><strong>Nenhum aparelho ainda</strong>Toque em “Novo aparelho” para cadastrar o primeiro iPhone do estoque.</div>`;return}
+  if(view==="resumo"){renderResumo(box,base);return}
   if(!rows.length){box.innerHTML=`<div class="empty"><strong>Nada encontrado</strong>Ajuste a busca ou o filtro.</div>`;return}
   box.innerHTML=`<div class="tablebox"><table><thead><tr><th>Aparelho</th><th>IMEI</th><th>Situação</th><th>Cliente</th><th class="num">Custo</th><th class="num">Repasse</th><th></th></tr></thead><tbody>${rows.map(a=>{
     const f=fornById(a.fornecedorId);
-    const sub=[a.condicao,a.bateria?("bateria "+a.bateria+"%"):""].filter(Boolean).join(" · ");
+    const sub=detalhes(a);
     const fcell=a.status==="estoque"?`<span class="meta">—</span>`:`${esc(f?f.nome:"Sem cliente")}<div class="meta">${pessoaNome(a)?"por "+esc(pessoaNome(a))+" · ":""}${a.dataRetirada?"desde "+dBR(a.dataRetirada)+(a.status==="retirado"?" · "+days(a.dataRetirada)+" dias":""):""}</div>`;
     const cobrar=a.status==="retirado"?btnPessoa(a)+(f&&f.whatsapp?`<a class="btn sm ${waPessoa(a)?"":"wa"}" data-cob="${a.id}" href="${esc(waLink(f,[a]))}" target="_blank" rel="noopener">Cobrar cliente</a>`:""):"";
-    return `<tr><td><div class="model">${esc(label(a))}${exTag(a)}</div><div class="meta">${esc(sub)}</div></td>
+    return `<tr><td><div class="model">${tipoTag(a)}${esc(label(a))}${exTag(a)}</div><div class="meta">${esc(sub)}</div></td>
       <td class="imei">${esc(a.imei||"—")}</td><td>${statusPill(a)}${a.status==="retirado"?cobTag(a):a.status==="pago"&&a.pagoEm?`<div class="meta">${dBR(a.pagoEm)}${a.formaPagamento?" · "+esc(a.formaPagamento):""}</div>`:""}</td><td>${fcell}</td>
       <td class="num">${a.custo?brl(a.custo):"—"}</td><td class="num">${a.preco?brl(a.preco):"—"}${a.status!=="estoque"&&a.valorRetirada&&a.valorRetirada!==a.preco?`<div class="meta">retirada ${brl(a.valorRetirada)}</div>`:""}</td>
       <td><div class="row-actions">${a.status==="estoque"?`<button class="btn sm" data-ret="${a.id}">Retirar</button>`:""}${cobrar}${a.status==="retirado"?`<button class="btn sm" data-pay="${a.id}">Dar baixa</button>`:""}<button class="btn sm ghost" data-edit="${a.id}">Editar</button></div></td></tr>`}).join("")}</tbody></table></div>`;
+}
+
+function renderResumo(box,base){
+  const m=new Map();
+  base.forEach(a=>{const k=grupoKey(a);if(!m.has(k))m.set(k,{a,est:[],ret:0,pago:0,precos:[]});const g=m.get(k);
+    if(a.status==="estoque"){g.est.push(a);if(a.preco)g.precos.push(Number(a.preco))}else if(a.status==="retirado")g.ret++;else g.pago++});
+  let gs=[...m.values()];
+  if(filtro==="estoque")gs=gs.filter(g=>g.est.length);if(filtro==="retirado")gs=gs.filter(g=>g.ret);if(filtro==="pago")gs=gs.filter(g=>g.pago);
+  if(!gs.length){box.innerHTML=`<div class="empty"><strong>Nada encontrado</strong>Ajuste a busca ou o filtro.</div>`;return}
+  gs.sort((x,y)=>(y.est.length>0)-(x.est.length>0)||(x.a.condicao||"").localeCompare(y.a.condicao||"")||label(x.a).localeCompare(label(y.a)));
+  const tot=gs.reduce((s,g)=>s+g.est.length,0);
+  const faixa=g=>{if(!g.precos.length)return "—";const lo=Math.min(...g.precos),hi=Math.max(...g.precos);return lo===hi?brl(lo):brl(lo)+" a "+brl(hi)};
+  box.innerHTML=`<div class="tablebox"><table><thead><tr><th>Produto</th><th class="num">Em estoque</th><th class="num">Retirados</th><th class="num">Pagos</th><th class="num">Repasse</th><th></th></tr></thead><tbody>${gs.map(g=>`<tr>
+    <td><div class="model">${tipoTag(g.a)}${esc(label(g.a))}</div>${isSemi(g.a)&&g.est.length?`<div class="meta">${g.est.map(a=>a.bateria?a.bateria+"%":"").filter(Boolean).join(" · ")&&"baterias: "+g.est.map(a=>a.bateria?a.bateria+"%":"?").join(", ")}</div>`:""}</td>
+    <td class="num"><span class="qty ${g.est.length?"":"zero"}">${g.est.length}</span></td><td class="num">${g.ret||"—"}</td><td class="num">${g.pago||"—"}</td>
+    <td class="num">${faixa(g)}</td>
+    <td><div class="row-actions">${g.est.length?`<button class="btn sm" data-ret="${g.est[0].id}">Retirar</button>`:""}${isSemi(g.a)?"":`<button class="btn sm ghost" data-addlike="${g.a.id}">+ Unidades</button>`}<button class="btn sm ghost" data-unidades="${esc(grupoKey(g.a))}">Ver unidades</button></div></td></tr>`).join("")}
+    </tbody><tfoot><tr><td class="meta">Total em estoque</td><td class="num"><span class="qty">${tot}</span></td><td colspan="4"></td></tr></tfoot></table></div>`;
 }
 
 function renderSups(){
@@ -522,33 +591,76 @@ function fillFornSelect(){
 function setTab(t){tab=t;$$("nav.tabs button").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===t));["aparelhos","fornecedores","cobrancas"].forEach(x=>$("#tab-"+x).hidden=x!==t)}
 $$("nav.tabs button").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
 $("#fStatus").onclick=e=>{const b=e.target.closest(".chip");if(!b)return;filtro=b.dataset.f;$$("#fStatus .chip").forEach(c=>c.setAttribute("aria-pressed",c===b));renderPhones()};
+$("#fTipo").onclick=e=>{const b=e.target.closest(".chip");if(!b)return;tipoF=b.dataset.t;$$("#fTipo .chip").forEach(c=>c.setAttribute("aria-pressed",c===b));renderPhones()};
+function setView(v){view=v;$$("#fView .chip").forEach(c=>c.setAttribute("aria-pressed",c.dataset.v===v));renderPhones()}
+$("#fView").onclick=e=>{const b=e.target.closest(".chip");if(b)setView(b.dataset.v)};
 $("#q").oninput=renderPhones; $("#qf").oninput=renderSups;
 
 /* ---------- aparelho ---------- */
 function disarm(btn){btn.classList.remove("armed");btn.textContent="Excluir"}
-function openPhone(a){
-  const f=$("#phoneForm");f.hidden=false;f.reset();fillFornSelect();
-  $("#phoneFormTitle").textContent=a?"Editar aparelho":"Novo aparelho";
+let pTipo="Novo";
+function setTipo(t){
+  pTipo=t;$$("#pTipo button").forEach(b=>b.setAttribute("aria-checked",b.dataset.t===t));
+  const editing=!!$("#pId").value;
+  $$('#phoneForm [data-only="novo"]').forEach(el=>el.hidden=t!=="Novo");
+  $$('#phoneForm [data-only="semi"]').forEach(el=>el.hidden=t!=="Seminovo");
+  $("#pImei").required=t==="Seminovo";$("#pBat").required=t==="Seminovo";
+  if(t==="Novo"){$("#pQtdBox").hidden=editing;qtdSync()}
+}
+function qtdSync(){const n=Number($("#pQtd").value)||1,multi=!$("#pId").value&&n>1;$("#pImeiNovoBox").hidden=pTipo!=="Novo"||multi;$("#pImeisBox").hidden=pTipo!=="Novo"||!multi;
+  $("#phoneSubmit").textContent=multi?`Salvar ${n} unidades`:"Salvar aparelho"}
+$("#pTipo").onclick=e=>{const b=e.target.closest("button");if(b&&!b.disabled)setTipo(b.dataset.t)};
+$("#pQtd").oninput=qtdSync;
+function openPhone(a,like){
+  const f=$("#phoneForm");$("#retForm").hidden=true;f.hidden=false;f.reset();fillFornSelect();
+  $("#phoneFormTitle").textContent=a?"Editar aparelho":like?"Adicionar unidades":"Novo aparelho";
   $("#pId").value=a?a.id:"";$("#pDel").hidden=!a;disarm($("#pDel"));
-  if(a){$("#pModelo").value=a.modelo||"";$("#pCap").value=a.capacidade||"128GB";$("#pCor").value=a.cor||"";$("#pImei").value=a.imei||"";$("#pCond").value=a.condicao||"Seminovo";$("#pBat").value=a.bateria||"";$("#pCusto").value=fmtNum(a.custo);$("#pPreco").value=fmtNum(a.preco);$("#pStatus").value=a.status||"estoque";$("#pForn").value=a.fornecedorId||"";$("#pData").value=a.dataRetirada||"";$("#pVenc").value=a.vencimento||"";$("#pObs").value=a.obs||"";$("#pValRet").value=fmtNum(a.valorRetirada)}
+  $("#pSitBox").hidden=!a;
+  $$("#pTipo button").forEach(b=>b.disabled=!!a);
+  const src=a||like;
+  if(src){$("#pModelo").value=src.modelo||"";$("#pCap").value=src.capacidade||"128GB";$("#pCor").value=src.cor||"";$("#pCusto").value=fmtNum(src.custo);$("#pPreco").value=fmtNum(src.preco)}
+  if(a){$("#pImei").value=a.imei||"";$("#pImeiNovo").value=a.imei||"";$("#pBat").value=a.bateria&&isSemi(a)?a.bateria:"";$("#pEstado").value=a.estado||"Muito bom";$("#pCaixa").value=a.caixa||"Sem caixa";$("#pGarantia").value=a.garantia||"";$("#pReparo").value=a.reparo||"";$("#pAcess").value=a.acessorios||"";$("#pDetalhe").value=a.detalhe||"";
+    $("#pStatus").value=a.status||"estoque";$("#pForn").value=a.fornecedorId||"";$("#pData").value=a.dataRetirada||"";$("#pVenc").value=a.vencimento||"";$("#pObs").value=a.obs||"";$("#pValRet").value=fmtNum(a.valorRetirada)}
+  setTipo(src?(src.condicao==="Seminovo"?"Seminovo":"Novo"):pTipo);
   fillPessoa($("#pPessoa"),$("#pForn").value,a&&a.pessoaId);
-  f.scrollIntoView({behavior:"smooth",block:"start"});$("#pModelo").focus({preventScroll:true});
+  f.scrollIntoView({behavior:"smooth",block:"start"});(like?$("#pQtd"):$("#pModelo")).focus({preventScroll:true});
 }
 $("#newPhone").onclick=()=>openPhone(null);
 $("#pCancel").onclick=()=>$("#phoneForm").hidden=true;
 $("#pStatus").onchange=()=>{if($("#pStatus").value!=="estoque"&&!$("#pData").value)$("#pData").value=today()};
 $("#pForn").onchange=()=>{fillPessoa($("#pPessoa"),$("#pForn").value);if($("#pForn").value&&$("#pStatus").value==="estoque"){$("#pStatus").value="retirado";if(!$("#pData").value)$("#pData").value=today()}};
+const digits=v=>String(v||"").replace(/\D/g,"");
 $("#phoneForm").onsubmit=e=>{
   e.preventDefault();
-  const id=$("#pId").value||uid(), old=state.aparelhos.find(x=>x.id===id)||{};
-  const status=$("#pStatus").value;
-  if(status==="retirado"&&!$("#pForn").value){toast("Escolha o cliente que retirou");return}
-  const item={...old,id,modelo:$("#pModelo").value.trim(),capacidade:$("#pCap").value,cor:$("#pCor").value.trim(),imei:$("#pImei").value.replace(/\D/g,""),condicao:$("#pCond").value,bateria:$("#pBat").value?Number($("#pBat").value):null,custo:num($("#pCusto").value),preco:num($("#pPreco").value),status,fornecedorId:status==="estoque"?"":$("#pForn").value,dataRetirada:status==="estoque"?"":$("#pData").value,vencimento:status==="estoque"?"":$("#pVenc").value,obs:$("#pObs").value.trim(),criadoEm:old.criadoEm||new Date().toISOString()};
-  if(status==="estoque"){item.pessoaId="";item.pessoaNome="";item.valorRetirada=0}
-  else{const f=fornById(item.fornecedorId),p=f&&(f.autorizados||[]).find(x=>x.id===$("#pPessoa").value);item.pessoaId=p?p.id:"";item.pessoaNome=p?p.nome:"";item.valorRetirada=num($("#pValRet").value)}
-  if(status==="pago"&&!old.pagoEm)item.pagoEm=today();
-  delete item.exemplo;
-  act(()=>store.save("aparelhos",item),"Aparelho salvo");$("#phoneForm").hidden=true;
+  const editId=$("#pId").value, old=state.aparelhos.find(x=>x.id===editId)||{};
+  const semi=pTipo==="Seminovo";
+  const comum={modelo:$("#pModelo").value.trim(),capacidade:$("#pCap").value,cor:$("#pCor").value.trim(),condicao:pTipo,custo:num($("#pCusto").value),preco:num($("#pPreco").value),obs:$("#pObs").value.trim()};
+  if(semi){
+    const imei=digits($("#pImei").value);
+    if(imei.length!==15){toast("O IMEI do seminovo precisa ter 15 dígitos");$("#pImei").focus();return}
+    const dup=state.aparelhos.find(x=>x.imei===imei&&x.id!==editId);if(dup){toast("Esse IMEI já está cadastrado: "+label(dup));return}
+    Object.assign(comum,{imei,bateria:Number($("#pBat").value)||null,estado:$("#pEstado").value,caixa:$("#pCaixa").value,garantia:$("#pGarantia").value,reparo:$("#pReparo").value.trim(),acessorios:$("#pAcess").value.trim(),detalhe:$("#pDetalhe").value.trim()});
+  }else{
+    Object.assign(comum,{bateria:100,estado:"",caixa:"Lacrado",garantia:"",reparo:"",acessorios:"",detalhe:""});
+  }
+  if(editId){
+    const status=$("#pStatus").value;
+    if(status==="retirado"&&!$("#pForn").value){toast("Escolha o cliente que retirou");return}
+    if(!semi)comum.imei=digits($("#pImeiNovo").value);
+    const item={...old,...comum,id:editId,status,fornecedorId:status==="estoque"?"":$("#pForn").value,dataRetirada:status==="estoque"?"":$("#pData").value,vencimento:status==="estoque"?"":$("#pVenc").value};
+    if(status==="estoque"){item.pessoaId="";item.pessoaNome="";item.valorRetirada=0}
+    else{const f=fornById(item.fornecedorId),p=f&&(f.autorizados||[]).find(x=>x.id===$("#pPessoa").value);item.pessoaId=p?p.id:"";item.pessoaNome=p?p.nome:"";item.valorRetirada=num($("#pValRet").value)}
+    if(status==="pago"&&!old.pagoEm)item.pagoEm=today();
+    delete item.exemplo;
+    act(()=>store.save("aparelhos",item),"Aparelho salvo");$("#phoneForm").hidden=true;return;
+  }
+  const n=semi?1:Math.max(1,Math.min(50,Number($("#pQtd").value)||1));
+  const imeis=semi?[comum.imei]:(n>1?$("#pImeis").value.split(/\n+/).map(digits).filter(Boolean):[digits($("#pImeiNovo").value)].filter(Boolean));
+  if(imeis.length>n){toast(`Você colocou ${imeis.length} IMEIs para ${n} unidades`);return}
+  const t0=Date.now();
+  const itens=Array.from({length:n},(_,i)=>({...comum,id:uid()+i,imei:imeis[i]||"",status:"estoque",fornecedorId:"",dataRetirada:"",vencimento:"",pessoaId:"",pessoaNome:"",valorRetirada:0,criadoEm:new Date(t0+i).toISOString()}));
+  act(async()=>{for(const it of itens)await store.save("aparelhos",it)},n>1?`${n} unidades adicionadas ao estoque`:"Aparelho salvo");
+  $("#phoneForm").hidden=true;
 };
 $("#pDel").onclick=e=>{const b=e.currentTarget;if(!b.classList.contains("armed")){b.classList.add("armed");b.textContent="Confirmar exclusão";return}
   act(()=>store.del("aparelhos",$("#pId").value),"Aparelho excluído");$("#phoneForm").hidden=true};
@@ -585,10 +697,12 @@ $("#msgForm").onsubmit=e=>{e.preventDefault();act(()=>store.saveMsg($("#msgText"
 
 /* ---------- ações nas listas ---------- */
 document.addEventListener("click",e=>{
-  const t=e.target.closest("[data-edit],[data-editf],[data-pay],[data-copy],[data-ret],[data-rmauth],[data-cob],[data-undo]");if(!t)return;
+  const t=e.target.closest("[data-edit],[data-editf],[data-pay],[data-copy],[data-ret],[data-rmauth],[data-cob],[data-undo],[data-addlike],[data-unidades]");if(!t)return;
   if(t.dataset.cob)marcarCobrado(t.dataset.cob.split(","));
   if(t.dataset.undo){const a=state.aparelhos.find(x=>x.id===t.dataset.undo);if(a){const it={...a,status:"retirado"};["pagoEm","formaPagamento","obsPagamento","valorPago"].forEach(k=>delete it[k]);act(()=>store.save("aparelhos",it),"Baixa desfeita. Voltou para Em aberto")}}
   if(t.dataset.ret)openRet(t.dataset.ret);
+  if(t.dataset.addlike)openPhone(null,state.aparelhos.find(a=>a.id===t.dataset.addlike));
+  if(t.dataset.unidades){const a=state.aparelhos.find(x=>grupoKey(x)===t.dataset.unidades);if(a){$("#q").value=[a.modelo,a.capacidade,a.cor].filter(Boolean).join(" ");setView("unidades")}}
   if(t.dataset.rmauth){t.closest(".auth-row").remove();authEmpty()}
   if(t.dataset.edit)openPhone(state.aparelhos.find(a=>a.id===t.dataset.edit));
   if(t.dataset.editf)openSup(state.fornecedores.find(f=>f.id===t.dataset.editf));
@@ -627,7 +741,7 @@ function openRet(aparelhoId){
   if(!state.fornecedores.length){toast("Cadastre um cliente primeiro");setTab("fornecedores");openSup(null);return}
   $("#phoneForm").hidden=true;
   const fm=$("#retForm");fm.hidden=false;fm.reset();
-  $("#rAparelho").innerHTML=est.map(a=>`<option value="${a.id}">${esc(label(a))}${a.imei?" · IMEI "+esc(String(a.imei).slice(-4)):""} — ${brl(a.preco)}</option>`).join("");
+  $("#rAparelho").innerHTML=est.map(a=>`<option value="${a.id}">${isSemi(a)?"Seminovo · ":"Novo · "}${esc(label(a))}${isSemi(a)&&a.bateria?" · "+a.bateria+"%":""}${a.imei?" · IMEI "+esc(String(a.imei).slice(-4)):""} — ${brl(a.preco)}</option>`).join("");
   if(aparelhoId)$("#rAparelho").value=aparelhoId;
   $("#rForn").innerHTML=`<option value="">— selecione —</option>`+state.fornecedores.slice().sort((a,b)=>(a.nome||"").localeCompare(b.nome||"")).map(f=>`<option value="${f.id}">${esc(f.nome)}</option>`).join("");
   $("#rData").value=today();retSync();retPessoa();
